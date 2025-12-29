@@ -28,7 +28,7 @@ public struct WebSocketTransportConfiguration: Sendable {
   }
 }
 
-/// Transport implementation using WebSocket for JSON-RPC communication
+/// Transport implementation using WebSocket for streaming data
 public actor WebSocketTransport: Transport {
   public let mode: TransportMode
   public private(set) var isRunning: Bool = false
@@ -69,7 +69,7 @@ public actor WebSocketTransport: Transport {
   ) {
     self.mode = mode
     self.config = config
-    self.logger = logger ?? Logger(label: "jsonrpc-proxy.websocket")
+    self.logger = logger ?? Logger(label: "stream-bridge.websocket")
   }
 
   public func start() async throws {
@@ -147,8 +147,6 @@ public actor WebSocketTransport: Transport {
   private func startServer() async throws {
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     self.eventLoopGroup = group
-
-    // Use WebSocketKit with NIO upgrader
 
     let upgrader = NIOWebSocketServerUpgrader(
       shouldUpgrade: { channel, head in

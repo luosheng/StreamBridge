@@ -1,6 +1,6 @@
 import Foundation
-import JSONRPCProxy
 import Logging
+import StreamBridge
 
 /// OpenCode ACP Proxy
 ///

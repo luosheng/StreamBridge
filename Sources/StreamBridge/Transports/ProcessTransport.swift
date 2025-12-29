@@ -71,7 +71,7 @@ public actor ProcessTransport: Transport {
       // Start reading from stdout
       startReading()
 
-      // Also log stderr
+      // Also forward stderr
       startReadingStderr()
     } catch {
       throw TransportError.connectionFailed(
@@ -103,10 +103,9 @@ public actor ProcessTransport: Transport {
       throw TransportError.notStarted
     }
 
-    let framedData = MessageFraming.frame(data)
-
+    // Write raw bytes to process stdin
     do {
-      try stdinPipe.fileHandleForWriting.write(contentsOf: framedData)
+      try stdinPipe.fileHandleForWriting.write(contentsOf: data)
       logger?.debug("Sent \(data.count) bytes to process stdin")
     } catch {
       throw TransportError.sendFailed(
@@ -122,7 +121,6 @@ public actor ProcessTransport: Transport {
     readTask = Task { [weak self] in
       guard let self else { return }
 
-      var buffer = Data()
       let fileHandle = stdoutPipe.fileHandleForReading
 
       while !Task.isCancelled {
@@ -133,12 +131,7 @@ public actor ProcessTransport: Transport {
           break
         }
 
-        buffer.append(chunk)
-
-        // Try to parse complete messages
-        while let message = await self.extractMessage(from: &buffer) {
-          await self.yieldMessage(message)
-        }
+        await self.yieldMessage(chunk)
       }
 
       await self.finishMessages()
@@ -169,22 +162,6 @@ public actor ProcessTransport: Transport {
     }
   }
 
-  private func extractMessage(from buffer: inout Data) -> Data? {
-    guard let (contentLength, headerEnd) = MessageFraming.parseHeader(buffer) else {
-      return nil
-    }
-
-    let totalLength = headerEnd + contentLength
-    guard buffer.count >= totalLength else {
-      return nil
-    }
-
-    let messageData = buffer.subdata(in: headerEnd..<totalLength)
-    buffer.removeSubrange(0..<totalLength)
-
-    return messageData
-  }
-
   private func yieldMessage(_ data: Data) {
     messagesContinuation?.yield(data)
     logger?.debug("Received \(data.count) bytes from process stdout")
@@ -192,9 +169,5 @@ public actor ProcessTransport: Transport {
 
   private func finishMessages() {
     messagesContinuation?.finish()
-  }
-
-  private func logError(_ message: String) {
-    logger?.error("\(message)")
   }
 }

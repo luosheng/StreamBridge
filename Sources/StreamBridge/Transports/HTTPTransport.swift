@@ -22,7 +22,7 @@ public struct HTTPTransportConfiguration: Sendable {
   }
 }
 
-/// Transport implementation using HTTP for JSON-RPC communication
+/// Transport implementation using HTTP for streaming data
 public actor HTTPTransport: Transport {
   public let mode: TransportMode
   public private(set) var isRunning: Bool = false
@@ -61,7 +61,7 @@ public actor HTTPTransport: Transport {
   ) {
     self.mode = mode
     self.config = config
-    self.logger = logger ?? Logger(label: "jsonrpc-proxy.http")
+    self.logger = logger ?? Logger(label: "stream-bridge.http")
   }
 
   public func start() async throws {
@@ -108,7 +108,6 @@ public actor HTTPTransport: Transport {
       try await sendHTTPRequest(data)
     } else {
       // In server mode, sending is handled via responses
-      // For now, we just log - proper request/response matching would need more state
       logger.debug("Server mode send: \(data.count) bytes")
     }
   }
@@ -210,7 +209,7 @@ private final class HTTPServerMessageHandler: ChannelInboundHandler, @unchecked 
       }
 
       // Send a simple acknowledgment response
-      let responseBody = Data("{\"jsonrpc\":\"2.0\",\"result\":\"received\"}".utf8)
+      let responseBody = Data("{\"status\":\"received\"}".utf8)
 
       var headers = HTTPHeaders()
       headers.add(name: "Content-Type", value: "application/json")

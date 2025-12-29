@@ -1,7 +1,7 @@
 import Foundation
 import Logging
 
-/// Configuration for the JSON-RPC Proxy
+/// Configuration for the Stream Bridge
 public struct ProxyConfiguration: Sendable {
   public let inbound: TransportType
   public let outbound: TransportType
@@ -33,7 +33,7 @@ public enum TransportType: Sendable {
   }
 }
 
-/// JSON-RPC Proxy that forwards messages between two transports
+/// Stream Bridge that forwards data between two transports
 public actor Proxy {
   private let inbound: any Transport
   private let outbound: any Transport
@@ -44,10 +44,10 @@ public actor Proxy {
 
   public private(set) var isRunning: Bool = false
 
-  /// Initialize a proxy with specific transport instances
+  /// Initialize a bridge with specific transport instances
   /// - Parameters:
-  ///   - inbound: Transport receiving incoming messages (server mode)
-  ///   - outbound: Transport sending messages to backend (client mode)
+  ///   - inbound: Transport receiving incoming data (server mode)
+  ///   - outbound: Transport sending data to backend (client mode)
   ///   - logger: Optional logger instance
   public init(inbound: any Transport, outbound: any Transport, logger: Logger? = nil) {
     self.inbound = inbound
@@ -55,7 +55,7 @@ public actor Proxy {
     self.logger = logger
   }
 
-  /// Initialize a proxy with transport types and configuration
+  /// Initialize a bridge with transport types and configuration
   /// - Parameters:
   ///   - inboundType: Type and configuration for inbound transport
   ///   - outboundType: Type and configuration for outbound transport
@@ -66,9 +66,9 @@ public actor Proxy {
     self.logger = logger
   }
 
-  /// Initialize a proxy from configuration
+  /// Initialize a bridge from configuration
   /// - Parameters:
-  ///   - configuration: Proxy configuration
+  ///   - configuration: Bridge configuration
   ///   - logger: Optional logger instance
   public init(configuration: ProxyConfiguration, logger: Logger? = nil) {
     self.inbound = Self.createTransport(type: configuration.inbound, mode: .server, logger: logger)
@@ -77,11 +77,11 @@ public actor Proxy {
     self.logger = logger
   }
 
-  /// Start the proxy
+  /// Start the bridge
   public func start() async throws {
     guard !isRunning else { return }
 
-    logger?.info("Starting JSON-RPC Proxy...")
+    logger?.info("Starting Stream Bridge...")
 
     // Start both transports
     try await inbound.start()
@@ -89,17 +89,17 @@ public actor Proxy {
 
     isRunning = true
 
-    // Start forwarding messages
-    startMessageForwarding()
+    // Start forwarding data
+    startDataForwarding()
 
-    logger?.info("JSON-RPC Proxy started")
+    logger?.info("Stream Bridge started")
   }
 
-  /// Stop the proxy
+  /// Stop the bridge
   public func stop() async throws {
     guard isRunning else { return }
 
-    logger?.info("Stopping JSON-RPC Proxy...")
+    logger?.info("Stopping Stream Bridge...")
 
     forwardTask?.cancel()
     responseTask?.cancel()
@@ -111,10 +111,10 @@ public actor Proxy {
 
     isRunning = false
 
-    logger?.info("JSON-RPC Proxy stopped")
+    logger?.info("Stream Bridge stopped")
   }
 
-  /// Run the proxy until cancelled
+  /// Run the bridge until cancelled
   public func run() async throws {
     try await start()
 
@@ -139,25 +139,25 @@ public actor Proxy {
     }
   }
 
-  private func startMessageForwarding() {
-    // Forward inbound messages to outbound
+  private func startDataForwarding() {
+    // Forward inbound data to outbound
     forwardTask = Task {
-      for await message in await inbound.messages {
+      for await data in await inbound.messages {
         do {
-          logger?.debug("Forwarding request: \(message.count) bytes")
-          try await outbound.send(message)
+          logger?.debug("Forwarding: \(data.count) bytes")
+          try await outbound.send(data)
         } catch {
-          logger?.error("Failed to forward request: \(error)")
+          logger?.error("Failed to forward: \(error)")
         }
       }
     }
 
     // Forward outbound responses back to inbound
     responseTask = Task {
-      for await message in await outbound.messages {
+      for await data in await outbound.messages {
         do {
-          logger?.debug("Forwarding response: \(message.count) bytes")
-          try await inbound.send(message)
+          logger?.debug("Forwarding response: \(data.count) bytes")
+          try await inbound.send(data)
         } catch {
           logger?.error("Failed to forward response: \(error)")
         }

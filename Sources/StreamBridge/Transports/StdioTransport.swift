@@ -1,7 +1,7 @@
 import Foundation
 import Logging
 
-/// Transport implementation using stdin/stdout for JSON-RPC communication
+/// Transport implementation using stdin/stdout for streaming data
 public actor StdioTransport: Transport {
   public let mode: TransportMode
   public private(set) var isRunning: Bool = false
@@ -58,10 +58,8 @@ public actor StdioTransport: Transport {
       throw TransportError.notStarted
     }
 
-    let framedData = MessageFraming.frame(data)
-
-    // Write to stdout
-    try framedData.withUnsafeBytes { buffer in
+    // Write raw bytes to stdout
+    try data.withUnsafeBytes { buffer in
       guard let baseAddress = buffer.baseAddress else { return }
       let written = fwrite(baseAddress, 1, buffer.count, stdout)
       if written != buffer.count {
@@ -82,7 +80,6 @@ public actor StdioTransport: Transport {
   }
 
   private func readLoop() async {
-    var buffer = Data()
     let chunkSize = 4096
     var chunk = [UInt8](repeating: 0, count: chunkSize)
 
@@ -91,13 +88,9 @@ public actor StdioTransport: Transport {
       let bytesRead = fread(&chunk, 1, chunkSize, stdin)
 
       if bytesRead > 0 {
-        buffer.append(contentsOf: chunk[0..<bytesRead])
-
-        // Try to parse complete messages
-        while let message = extractMessage(from: &buffer) {
-          messagesContinuation?.yield(message)
-          logger?.debug("Received \(message.count) bytes via stdin")
-        }
+        let data = Data(chunk[0..<bytesRead])
+        messagesContinuation?.yield(data)
+        logger?.debug("Received \(bytesRead) bytes via stdin")
       } else if feof(stdin) != 0 {
         logger?.info("stdin closed (EOF)")
         break
@@ -111,21 +104,5 @@ public actor StdioTransport: Transport {
     }
 
     messagesContinuation?.finish()
-  }
-
-  private func extractMessage(from buffer: inout Data) -> Data? {
-    guard let (contentLength, headerEnd) = MessageFraming.parseHeader(buffer) else {
-      return nil
-    }
-
-    let totalLength = headerEnd + contentLength
-    guard buffer.count >= totalLength else {
-      return nil
-    }
-
-    let messageData = buffer.subdata(in: headerEnd..<totalLength)
-    buffer.removeSubrange(0..<totalLength)
-
-    return messageData
   }
 }

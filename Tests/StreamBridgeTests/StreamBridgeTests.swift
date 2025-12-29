@@ -1,55 +1,7 @@
 import Foundation
 import Testing
 
-@testable import JSONRPCProxy
-
-@Suite("MessageFraming Tests")
-struct MessageFramingTests {
-  @Test("Frame message with Content-Length header")
-  func testFrameMessage() throws {
-    let message = Data("{\"jsonrpc\":\"2.0\",\"method\":\"test\"}".utf8)
-    let framed = MessageFraming.frame(message)
-
-    let expected = "Content-Length: 33\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"test\"}"
-    #expect(String(data: framed, encoding: .utf8) == expected)
-  }
-
-  @Test("Parse Content-Length header")
-  func testParseHeader() throws {
-    let data = Data("Content-Length: 33\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"test\"}".utf8)
-
-    let result = MessageFraming.parseHeader(data)
-    #expect(result != nil)
-    #expect(result?.contentLength == 33)
-    #expect(result?.headerEnd == 20)
-  }
-
-  @Test("Parse header with multiple headers")
-  func testParseHeaderWithMultiple() throws {
-    let data = Data(
-      "Content-Type: application/json\r\nContent-Length: 50\r\n\r\n{\"jsonrpc\":\"2.0\"}".utf8)
-
-    let result = MessageFraming.parseHeader(data)
-    #expect(result != nil)
-    #expect(result?.contentLength == 50)
-  }
-
-  @Test("Parse incomplete header returns nil")
-  func testParseIncompleteHeader() throws {
-    let data = Data("Content-Length: 33\r\n".utf8)
-
-    let result = MessageFraming.parseHeader(data)
-    #expect(result == nil)
-  }
-
-  @Test("Parse header without Content-Length returns nil")
-  func testParseHeaderWithoutContentLength() throws {
-    let data = Data("Content-Type: application/json\r\n\r\n{\"jsonrpc\":\"2.0\"}".utf8)
-
-    let result = MessageFraming.parseHeader(data)
-    #expect(result == nil)
-  }
-}
+@testable import StreamBridge
 
 @Suite("Transport Mode Tests")
 struct TransportModeTests {
@@ -158,6 +110,17 @@ struct ProxyTests {
     let proxy = Proxy(configuration: config)
 
     let isRunning = await proxy.isRunning
+    #expect(isRunning == false)
+  }
+
+  @Test("Bridge typealias works")
+  func testBridgeTypealias() async {
+    let bridge = Bridge(
+      inboundType: .stdio,
+      outboundType: .http(host: "localhost", port: 8080, path: "/")
+    )
+
+    let isRunning = await bridge.isRunning
     #expect(isRunning == false)
   }
 }

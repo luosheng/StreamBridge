@@ -4,14 +4,14 @@
 import PackageDescription
 
 let package = Package(
-  name: "JSONRPCProxy",
+  name: "StreamBridge",
   platforms: [
     .macOS(.v14)
   ],
   products: [
     .library(
-      name: "JSONRPCProxy",
-      targets: ["JSONRPCProxy"]
+      name: "StreamBridge",
+      targets: ["StreamBridge"]
     ),
     .executable(
       name: "opencode-proxy",
@@ -26,7 +26,7 @@ let package = Package(
   ],
   targets: [
     .target(
-      name: "JSONRPCProxy",
+      name: "StreamBridge",
       dependencies: [
         .product(name: "NIO", package: "swift-nio"),
         .product(name: "NIOCore", package: "swift-nio"),
@@ -39,11 +39,11 @@ let package = Package(
     ),
     .executableTarget(
       name: "OpenCodeProxy",
-      dependencies: ["JSONRPCProxy"]
+      dependencies: ["StreamBridge"]
     ),
     .testTarget(
-      name: "JSONRPCProxyTests",
-      dependencies: ["JSONRPCProxy"]
+      name: "StreamBridgeTests",
+      dependencies: ["StreamBridge"]
     ),
   ]
 )
