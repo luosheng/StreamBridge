@@ -148,7 +148,7 @@ public actor ProcessTransport: Transport {
   private func startReadingStderr() {
     guard let stderrPipe = stderrPipe else { return }
 
-    Task { [weak self] in
+    Task {
       let fileHandle = stderrPipe.fileHandleForReading
 
       while !Task.isCancelled {
@@ -158,8 +158,12 @@ public actor ProcessTransport: Transport {
           break
         }
 
+        // Forward subprocess stderr to parent's stderr
+        try? FileHandle.standardError.write(contentsOf: chunk)
+
+        // Also log if logger is available
         if let text = String(data: chunk, encoding: .utf8) {
-          await self?.logError("Process stderr: \(text)")
+          logger?.debug("Process stderr: \(text)")
         }
       }
     }

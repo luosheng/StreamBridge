@@ -4,47 +4,100 @@ import Logging
 
 /// OpenCode ACP Proxy
 ///
-/// This example demonstrates a stdio-to-process proxy that forwards
-/// all JSON-RPC messages from stdin to the "opencode acp" command
-/// and returns responses to stdout.
-///
-/// Set DEBUG=1 environment variable to enable logging to stderr.
+/// A transparent stdio proxy that forwards stdin to "opencode acp"
+/// and returns stdout/stderr back.
 
 @main
 struct OpenCodeProxy {
+  static let enableLogging = ProcessInfo.processInfo.environment["DEBUG"] != nil
+
+  static func log(_ message: String) {
+    if enableLogging {
+      fputs("[proxy] \(message)\n", stderr)
+    }
+  }
+
   static func main() async throws {
-    // Only enable logging if DEBUG environment variable is set
-    let enableLogging = ProcessInfo.processInfo.environment["DEBUG"] != nil
+    log("Starting OpenCode ACP Proxy...")
 
-    var logger: Logger?
+    // Launch the subprocess
+    let process = Process()
+    let stdinPipe = Pipe()
+    let stdoutPipe = Pipe()
+    let stderrPipe = Pipe()
 
-    if enableLogging {
-      LoggingSystem.bootstrap { label in
-        var handler = StreamLogHandler.standardError(label: label)
-        handler.logLevel = .debug
-        return handler
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+    process.arguments = ["opencode", "acp"]
+    process.standardInput = stdinPipe
+    process.standardOutput = stdoutPipe
+    process.standardError = stderrPipe
+
+    do {
+      try process.run()
+      log("Process started with PID: \(process.processIdentifier)")
+    } catch {
+      fputs("[proxy] Failed to start process: \(error)\n", stderr)
+      exit(1)
+    }
+
+    // Forward parent stdin -> subprocess stdin
+    let stdinTask = Task.detached {
+      let inputHandle = FileHandle.standardInput
+      let outputHandle = stdinPipe.fileHandleForWriting
+
+      while true {
+        let data = inputHandle.availableData
+        if data.isEmpty {
+          Self.log("stdin EOF")
+          try? outputHandle.close()
+          break
+        }
+        Self.log("stdin received \(data.count) bytes")
+        try? outputHandle.write(contentsOf: data)
       }
-      logger = Logger(label: "opencode-proxy")
-      logger?.info("Starting OpenCode ACP Proxy...")
     }
 
-    // Create inbound transport (reads from stdin)
-    let inbound = StdioTransport(mode: .server, logger: logger)
+    // Forward subprocess stdout -> parent stdout
+    let stdoutTask = Task.detached {
+      let inputHandle = stdoutPipe.fileHandleForReading
 
-    // Create outbound transport (spawns "opencode acp" process)
-    let outbound = ProcessTransport(
-      command: "opencode",
-      arguments: ["acp"],
-      logger: logger
-    )
-
-    // Create and run the proxy
-    let proxy = Proxy(inbound: inbound, outbound: outbound, logger: logger)
-
-    if enableLogging {
-      logger?.info("Proxy initialized. Forwarding stdin -> opencode acp -> stdout")
+      while true {
+        let data = inputHandle.availableData
+        if data.isEmpty {
+          Self.log("subprocess stdout EOF")
+          break
+        }
+        Self.log("subprocess stdout: \(data.count) bytes")
+        FileHandle.standardOutput.write(data)
+      }
     }
 
-    try await proxy.run()
+    // Forward subprocess stderr -> parent stderr
+    let stderrTask = Task.detached {
+      let inputHandle = stderrPipe.fileHandleForReading
+
+      while true {
+        let data = inputHandle.availableData
+        if data.isEmpty {
+          Self.log("subprocess stderr EOF")
+          break
+        }
+        Self.log("subprocess stderr: \(data.count) bytes")
+        if let text = String(data: data, encoding: .utf8) {
+          Self.log("stderr content: \(text)")
+        }
+        FileHandle.standardError.write(data)
+      }
+    }
+
+    // Wait for process to exit
+    process.waitUntilExit()
+    log("Process exited with code: \(process.terminationStatus)")
+
+    stdinTask.cancel()
+    stdoutTask.cancel()
+    stderrTask.cancel()
+
+    exit(process.terminationStatus)
   }
 }
