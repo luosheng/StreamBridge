@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import StreamBridge
+@testable import StreamProxy
 
 @Suite("Transport Mode Tests")
 struct TransportModeTests {
@@ -46,8 +46,11 @@ struct TransportModeTests {
 struct ConfigurationTests {
   @Test("HTTP configuration creates correct URL")
   func testHTTPConfigURL() {
-    let config = HTTPTransportConfiguration(host: "localhost", port: 8080, path: "/rpc")
-    #expect(config.url.absoluteString == "http://localhost:8080/rpc")
+    let config = HTTPTransportConfiguration(
+      host: "localhost", port: 8080, inPath: "/in", outPath: "/out")
+    #expect(config.baseURL.absoluteString == "http://localhost:8080")
+    #expect(config.inURL.absoluteString == "http://localhost:8080/in")
+    #expect(config.outURL.absoluteString == "http://localhost:8080/out")
   }
 
   @Test("WebSocket configuration creates correct URL")
@@ -66,13 +69,14 @@ struct ConfigurationTests {
 
   @Test("TransportType factory methods")
   func testTransportTypeFactoryMethods() {
-    let httpType = TransportType.http(host: "localhost", port: 3000, path: "/api")
+    let httpType = TransportType.http(host: "localhost", port: 3000)
     let wsType = TransportType.webSocket(host: "localhost", port: 8080, path: "/ws", useTLS: true)
 
     if case .http(let config) = httpType {
       #expect(config.host == "localhost")
       #expect(config.port == 3000)
-      #expect(config.path == "/api")
+      #expect(config.inPath == "/in")
+      #expect(config.outPath == "/out")
     } else {
       Issue.record("Expected HTTP transport type")
     }
@@ -94,7 +98,7 @@ struct ProxyTests {
   func testProxyInitialization() async {
     let proxy = Proxy(
       inboundType: .stdio,
-      outboundType: .http(host: "localhost", port: 8080, path: "/")
+      outboundType: .http(host: "localhost", port: 8080)
     )
 
     let isRunning = await proxy.isRunning
@@ -117,7 +121,7 @@ struct ProxyTests {
   func testBridgeTypealias() async {
     let bridge = Bridge(
       inboundType: .stdio,
-      outboundType: .http(host: "localhost", port: 8080, path: "/")
+      outboundType: .http(host: "localhost", port: 8080)
     )
 
     let isRunning = await bridge.isRunning

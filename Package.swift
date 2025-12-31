@@ -10,8 +10,12 @@ let package = Package(
   ],
   products: [
     .library(
-      name: "StreamBridge",
-      targets: ["StreamBridge"]
+      name: "StreamTransport",
+      targets: ["StreamTransport"]
+    ),
+    .library(
+      name: "StreamProxy",
+      targets: ["StreamProxy"]
     ),
     .executable(
       name: "opencode-proxy",
@@ -26,7 +30,7 @@ let package = Package(
   ],
   targets: [
     .target(
-      name: "StreamBridge",
+      name: "StreamTransport",
       dependencies: [
         .product(name: "NIO", package: "swift-nio"),
         .product(name: "NIOCore", package: "swift-nio"),
@@ -37,13 +41,17 @@ let package = Package(
         .product(name: "Logging", package: "swift-log"),
       ]
     ),
+    .target(
+      name: "StreamProxy",
+      dependencies: ["StreamTransport"]
+    ),
     .executableTarget(
       name: "OpenCodeProxy",
-      dependencies: ["StreamBridge"]
+      dependencies: ["StreamProxy"]
     ),
     .testTarget(
       name: "StreamBridgeTests",
-      dependencies: ["StreamBridge"]
+      dependencies: ["StreamProxy"]
     ),
   ]
 )

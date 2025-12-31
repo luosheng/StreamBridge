@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import StreamTransport
 
 /// Configuration for the Stream Bridge
 public struct ProxyConfiguration: Sendable {
@@ -18,6 +19,9 @@ public enum TransportType: Sendable {
   case http(HTTPTransportConfiguration)
   case webSocket(WebSocketTransportConfiguration)
 }
+
+/// Typealias for backward compatibility
+public typealias Bridge = Proxy
 
 /// Stream Bridge that forwards data between two transports
 public actor Proxy {
