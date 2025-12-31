@@ -6,17 +6,33 @@ import PackageDescription
 let package = Package(
   name: "StreamBridge",
   platforms: [
-    .macOS(.v14)
+    .macOS(.v14),
+    .iOS(.v17),
+    .tvOS(.v17),
+    .watchOS(.v10),
   ],
   products: [
+    // Cross-platform core protocol
     .library(
-      name: "StreamTransport",
-      targets: ["StreamTransport"]
+      name: "StreamTransportCore",
+      targets: ["StreamTransportCore"]
     ),
+    // Cross-platform client implementations (iOS/macOS/tvOS/watchOS)
+    .library(
+      name: "StreamTransportClient",
+      targets: ["StreamTransportClient"]
+    ),
+    // macOS-only server implementations
+    .library(
+      name: "StreamTransportServer",
+      targets: ["StreamTransportServer"]
+    ),
+    // macOS-only proxy
     .library(
       name: "StreamProxy",
       targets: ["StreamProxy"]
     ),
+    // macOS-only example executable
     .executable(
       name: "opencode-proxy",
       targets: ["OpenCodeProxy"]
@@ -29,9 +45,28 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0"),
   ],
   targets: [
+    // MARK: - Core Protocol (Cross-platform)
     .target(
-      name: "StreamTransport",
+      name: "StreamTransportCore",
       dependencies: [
+        .product(name: "Logging", package: "swift-log")
+      ]
+    ),
+
+    // MARK: - Client Implementations (Cross-platform)
+    .target(
+      name: "StreamTransportClient",
+      dependencies: [
+        "StreamTransportCore",
+        .product(name: "Logging", package: "swift-log"),
+      ]
+    ),
+
+    // MARK: - Server Implementations (macOS/Linux only)
+    .target(
+      name: "StreamTransportServer",
+      dependencies: [
+        "StreamTransportCore",
         .product(name: "NIO", package: "swift-nio"),
         .product(name: "NIOCore", package: "swift-nio"),
         .product(name: "NIOPosix", package: "swift-nio"),
@@ -41,14 +76,20 @@ let package = Package(
         .product(name: "Logging", package: "swift-log"),
       ]
     ),
+
+    // MARK: - Proxy (macOS/Linux only)
     .target(
       name: "StreamProxy",
-      dependencies: ["StreamTransport"]
+      dependencies: ["StreamTransportServer"]
     ),
+
+    // MARK: - Example Executable (macOS only)
     .executableTarget(
       name: "OpenCodeProxy",
       dependencies: ["StreamProxy"]
     ),
+
+    // MARK: - Tests
     .testTarget(
       name: "StreamBridgeTests",
       dependencies: ["StreamProxy"]

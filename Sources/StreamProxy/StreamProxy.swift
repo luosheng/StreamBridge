@@ -1,2 +1,2 @@
-// Re-export StreamTransport for convenience
-@_exported import StreamTransport
+// Re-export StreamTransportServer for convenience
+@_exported import StreamTransportServer

@@ -1,6 +1,6 @@
 import Foundation
 import Logging
-import StreamTransport
+import StreamTransportServer
 
 /// Configuration for the Stream Bridge
 public struct ProxyConfiguration: Sendable {
