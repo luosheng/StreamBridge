@@ -17,23 +17,6 @@ public enum TransportType: Sendable {
   case stdio
   case http(HTTPTransportConfiguration)
   case webSocket(WebSocketTransportConfiguration)
-
-  /// Create default HTTP configuration
-  public static func http(
-    host: String = "127.0.0.1",
-    port: Int = 8080,
-    inPath: String = "/in",
-    outPath: String = "/out"
-  ) -> TransportType {
-    .http(HTTPTransportConfiguration(host: host, port: port, inPath: inPath, outPath: outPath))
-  }
-
-  /// Create default WebSocket configuration
-  public static func webSocket(
-    host: String = "127.0.0.1", port: Int = 8080, path: String = "/", useTLS: Bool = false
-  ) -> TransportType {
-    .webSocket(WebSocketTransportConfiguration(host: host, port: port, path: path, useTLS: useTLS))
-  }
 }
 
 /// Stream Bridge that forwards data between two transports
